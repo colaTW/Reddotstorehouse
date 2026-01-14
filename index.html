@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業倉儲系統 v5.2 - 最終穩定版</title>
+    <title>睿德資訊專業倉儲系統 v5.3 - 完整優化版</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
@@ -12,9 +12,13 @@
         .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .form-inbound { border: 3px solid #28a745 !important; }
         .form-outbound { border: 3px solid #dc3545 !important; }
+        
+        /* 庫存低於 30 的警示樣式 */
         .low-stock { background-color: #fff1f0 !important; color: #cf1322; font-weight: bold; }
+        
         .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display:none; justify-content:center; align-items:center; z-index:9999; }
-        .btn-xs { padding: 1px 5px; font-size: 11px; }
+        .btn-xs { padding: 2px 6px; font-size: 11px; }
+        .price-info { font-size: 0.75rem; color: #666; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -46,25 +50,40 @@
                         </div>
                         <h6 id="formTitle" class="fw-bold text-success">📗 入庫登錄</h6>
                         <form id="wmsForm">
-                            <div class="mb-2 small">日期<input type="date" id="date" class="form-control form-control-sm" required></div>
-                            <div class="mb-2 small">品項<select id="itemSelect" class="form-select form-select-sm" required onchange="updatePrice()"></select></div>
-                            <div class="mb-2 small">數量 (正數)<input type="number" id="qty" class="form-control form-control-sm" required></div>
-                            <div class="mb-2 small">單價<input type="number" id="price" class="form-control form-control-sm" required><div id="priceHint" class="text-muted" style="font-size:10px"></div></div>
-                            <div class="mb-2 small">案場/對象<select id="siteSelect" class="form-select form-select-sm"></select></div>
+                            <div class="mb-2 small">日期時間
+                                <input type="datetime-local" id="datetime" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="mb-2 small">品項
+                                <select id="itemSelect" class="form-select form-select-sm" required onchange="updatePrice()"></select>
+                            </div>
+                            <div class="mb-2 small">數量 (請輸入正數)
+                                <input type="number" id="qty" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="mb-2 small">單價
+                                <input type="number" id="price" class="form-control form-control-sm" required>
+                                <div id="priceHint" class="price-info"></div>
+                            </div>
+                            <div class="mb-2 small">案場/對象
+                                <select id="siteSelect" class="form-select form-select-sm"></select>
+                            </div>
                             <button type="submit" class="btn btn-primary btn-sm w-100 mt-2">確認提交</button>
                         </form>
                     </div>
                 </div>
                 <div class="col-md-8">
                     <div class="card p-3">
-                        <div class="d-flex justify-content-between mb-2">
-                            <h6 class="fw-bold">📍 目前剩餘庫存</h6>
+                        <div class="d-flex justify-content-between mb-2 align-items-center">
+                            <h6 class="fw-bold m-0">📍 目前剩餘庫存 (低於 30 警示)</h6>
                             <input type="text" id="searchInput" class="form-control form-control-sm w-50" placeholder="🔍 模糊搜尋品項..." oninput="renderInventory()">
                         </div>
-                        <table class="table table-sm small table-hover">
-                            <thead class="table-light"><tr><th>品項</th><th>進</th><th>出</th><th>剩餘</th><th>單價</th><th>操作</th></tr></thead>
-                            <tbody id="inventoryBody"></tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table class="table table-sm small table-hover border">
+                                <thead class="table-light">
+                                    <tr><th>品項</th><th>累計進</th><th>累計出</th><th>剩餘</th><th>單價</th><th>操作</th></tr>
+                                </thead>
+                                <tbody id="inventoryBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -74,9 +93,9 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="card p-3">
-                        <h6 class="fw-bold">🛠️ 品項管理</h6>
+                        <h6 class="fw-bold border-bottom pb-2">🛠️ 品項管理</h6>
                         <div class="input-group mb-2">
-                            <input type="text" id="newItem" class="form-control form-control-sm" placeholder="輸入新稱">
+                            <input type="text" id="newItem" class="form-control form-control-sm" placeholder="輸入新名稱">
                             <button class="btn btn-dark btn-sm" onclick="manageBasicData('Items', 'add', 'newItem')">新增</button>
                         </div>
                         <ul id="itemList" class="list-group list-group-flush small"></ul>
@@ -84,7 +103,7 @@
                 </div>
                 <div class="col-md-6">
                     <div class="card p-3">
-                        <h6 class="fw-bold">🛠️ 案場管理</h6>
+                        <h6 class="fw-bold border-bottom pb-2">🛠️ 案場管理</h6>
                         <div class="input-group mb-2">
                             <input type="text" id="newSite" class="form-control form-control-sm" placeholder="輸入案場名稱">
                             <button class="btn btn-dark btn-sm" onclick="manageBasicData('Sites', 'add', 'newSite')">新增</button>
@@ -97,33 +116,55 @@
 
         <div class="tab-pane fade" id="tab3">
             <div class="card p-4">
-                <h6 class="fw-bold">📊 案場報表匯出</h6>
-                <div class="row g-2 mt-2">
-                    <div class="col-8"><select id="exportSite" class="form-select form-select-sm"></select></div>
-                    <div class="col-4"><button class="btn btn-success btn-sm w-100" onclick="exportExcel()">匯出 Excel</button></div>
+                <h6 class="fw-bold mb-3">📊 案場出貨報表匯出</h6>
+                <div class="row g-2">
+                    <div class="col-8"><select id="exportSite" class="form-select"></select></div>
+                    <div class="col-4"><button class="btn btn-success w-100" onclick="exportExcel()">匯出 Excel</button></div>
                 </div>
-                <div id="siteTotalPreview" class="mt-4 fw-bold text-primary h5"></div>
+                <hr>
+                <div id="siteTotalPreview" class="fw-bold text-primary h5"></div>
             </div>
         </div>
     </div>
 </div>
 
 <div class="modal fade" id="detailModal" tabindex="-1">
-    <div class="modal-dialog modal-lg"><div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title" id="modalTitle">明細</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
-            <table class="table table-sm small"><thead><tr><th>日期</th><th>動作</th><th>數量</th><th>單價</th><th>案場</th></tr></thead><tbody id="detailBody"></tbody></table>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalTitle">進出明細</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-sm small mb-0 table-striped">
+                    <thead class="table-dark">
+                        <tr><th>日期時間</th><th>類型</th><th>數量</th><th>單價</th><th>案場</th></tr>
+                    </thead>
+                    <tbody id="detailBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-success btn-sm" onclick="exportSingleItemExcel()">匯出此品項明細</button>
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">關閉</button>
+            </div>
         </div>
-        <div class="modal-footer"><button class="btn btn-success btn-sm" onclick="exportSingleItemExcel()">匯出此品項 Excel</button></div>
-    </div></div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrMGc7PAWLEateQ4XqBYCI-N_YQbotpY-yJxgX-QcLqFvZE06rwPsagQTxv_8lk_kG/exec"; // 👈 請務必替換
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrMGc7PAWLEateQ4XqBYCI-N_YQbotpY-yJxgX-QcLqFvZE06rwPsagQTxv_8lk_kG/exec"; // 👈 請換成你的 GAS URL
     let cloudData = { records: [], items: [], sites: [] };
     let currentMode = 'in';
     let activeItem = "";
+
+    // 格式化日期為 YYYY/MM/DD HH:MM
+    function formatDateTime(dateStr) {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        const pad = (n) => n.toString().padStart(2, '0');
+        return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
 
     async function fetchData() {
         showLoader(true);
@@ -132,7 +173,7 @@
             cloudData = await res.json();
             renderSettings();
             renderInventory();
-        } catch(e) { console.error(e); alert("連線失敗，請檢查部署設定"); }
+        } catch(e) { console.error(e); alert("同步失敗，請檢查網路或 URL 設定"); }
         showLoader(false);
     }
 
@@ -140,6 +181,8 @@
         currentMode = mode;
         const card = document.getElementById('formCard');
         const title = document.getElementById('formTitle');
+        const btnIn = document.getElementById('btnIn');
+        const btnOut = document.getElementById('btnOut');
         const priceInput = document.getElementById('price');
         const siteSelect = document.getElementById('siteSelect');
 
@@ -147,12 +190,16 @@
             card.className = "card p-3 form-inbound";
             title.innerText = "📗 入庫登錄";
             title.className = "fw-bold text-success";
+            btnIn.className = "btn btn-success btn-sm w-50 me-1";
+            btnOut.className = "btn btn-outline-danger btn-sm w-50";
             priceInput.disabled = false;
             siteSelect.innerHTML = '<option value="總倉">總倉 (入庫)</option>';
         } else {
             card.className = "card p-3 form-outbound";
             title.innerText = "📕 出庫登錄";
             title.className = "fw-bold text-danger";
+            btnIn.className = "btn btn-outline-success btn-sm w-50 me-1";
+            btnOut.className = "btn btn-danger btn-sm w-50";
             priceInput.disabled = true;
             siteSelect.innerHTML = cloudData.sites.map(s => `<option value="${s}">${s}</option>`).join('');
         }
@@ -164,13 +211,14 @@
         const item = cloudData.items.find(i => i.name === selected);
         if (item) {
             document.getElementById('price').value = item.price;
-            document.getElementById('priceHint').innerText = `目前單價: $${item.price}`;
+            document.getElementById('priceHint').innerText = `目前系統單價: $${item.price}`;
         }
     }
 
     function renderInventory() {
         const search = document.getElementById('searchInput').value.toLowerCase();
         const inv = {};
+        
         cloudData.records.forEach(r => {
             const [date, name, qty, price, loc] = r;
             if (!inv[name]) inv[name] = { in: 0, out: 0, p: price };
@@ -179,11 +227,34 @@
         });
 
         const rows = Object.keys(inv).filter(n => n.toLowerCase().includes(search)).map(name => {
-            const s = inv[name]; const bal = s.in - s.out;
-            return `<tr class="${bal < 30 ? 'low-stock' : ''}"><td>${name}</td><td>${s.in}</td><td>${s.out}</td><td>${bal}</td><td>$${s.p}</td>
-            <td><button class="btn btn-primary btn-xs" onclick="showDetail('${name}')">明細</button></td></tr>`;
+            const s = inv[name]; 
+            const bal = s.in - s.out;
+            const isLow = bal < 30; // 👈 警示邏輯
+            return `<tr class="${isLow ? 'low-stock' : ''}">
+                <td>${name} ${isLow ? '⚠️' : ''}</td>
+                <td>${s.in}</td><td>${s.out}</td>
+                <td class="${isLow ? 'text-danger' : ''}">${bal}</td>
+                <td>$${s.p}</td>
+                <td><button class="btn btn-primary btn-xs" onclick="showDetail('${name}')">明細</button></td>
+            </tr>`;
         }).join('');
-        document.getElementById('inventoryBody').innerHTML = rows || '<tr><td colspan="6" class="text-center">無資料</td></tr>';
+        document.getElementById('inventoryBody').innerHTML = rows || '<tr><td colspan="6" class="text-center">無匹配資料</td></tr>';
+    }
+
+    function showDetail(name) {
+        activeItem = name;
+        const filtered = cloudData.records.filter(r => r[1] === name);
+        document.getElementById('modalTitle').innerText = `【${name}】進出貨完整明細`;
+        document.getElementById('detailBody').innerHTML = filtered.map(r => `
+            <tr>
+                <td>${formatDateTime(r[0])}</td>
+                <td>${r[2]>0 ? '<span class="badge bg-success">進</span>' : '<span class="badge bg-danger">出</span>'}</td>
+                <td>${Math.abs(r[2])}</td>
+                <td>$${r[3]}</td>
+                <td>${r[4]}</td>
+            </tr>
+        `).reverse().join(''); // 最新的放在最上面
+        new bootstrap.Modal(document.getElementById('detailModal')).show();
     }
 
     async function manageBasicData(target, action, inputId, idVal) {
@@ -196,23 +267,11 @@
     }
 
     function renderSettings() {
-        // 更新進出貨下拉
         document.getElementById('itemSelect').innerHTML = cloudData.items.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
         document.getElementById('exportSite').innerHTML = cloudData.sites.map(s => `<option value="${s}">${s}</option>`).join('');
-        
-        // 更新設定頁列表
-        document.getElementById('itemList').innerHTML = cloudData.items.map(i => `<li class="list-group-item d-flex justify-content-between">${i.name} ($${i.price}) <button class="btn btn-link btn-sm text-danger" onclick="manageBasicData('Items','delete','','${i.name}')">刪除</button></li>`).join('');
-        document.getElementById('siteList').innerHTML = cloudData.sites.map(s => `<li class="list-group-item d-flex justify-content-between">${s} <button class="btn btn-link btn-sm text-danger" onclick="manageBasicData('Sites','delete','','${s}')">刪除</button></li>`).join('');
-        
+        document.getElementById('itemList').innerHTML = cloudData.items.map(i => `<li class="list-group-item d-flex justify-content-between align-items-center">${i.name} ($${i.price}) <button class="btn btn-link text-danger p-0" onclick="manageBasicData('Items','delete','','${i.name}')">🗑️</button></li>`).join('');
+        document.getElementById('siteList').innerHTML = cloudData.sites.map(s => `<li class="list-group-item d-flex justify-content-between align-items-center">${s} <button class="btn btn-link text-danger p-0" onclick="manageBasicData('Sites','delete','','${s}')">🗑️</button></li>`).join('');
         switchMode(currentMode);
-    }
-
-    function showDetail(name) {
-        activeItem = name;
-        const filtered = cloudData.records.filter(r => r[1] === name);
-        document.getElementById('modalTitle').innerText = `${name} - 明細`;
-        document.getElementById('detailBody').innerHTML = filtered.map(r => `<tr><td>${r[0]}</td><td>${r[2]>0?'進':'出'}</td><td>${Math.abs(r[2])}</td><td>$${r[3]}</td><td>${r[4]}</td></tr>`).join('');
-        new bootstrap.Modal(document.getElementById('detailModal')).show();
     }
 
     document.getElementById('wmsForm').addEventListener('submit', async (e) => {
@@ -220,14 +279,28 @@
         showLoader(true);
         let q = parseInt(document.getElementById('qty').value);
         if (currentMode === 'out') q = -Math.abs(q);
-        const data = [document.getElementById('date').value, document.getElementById('itemSelect').value, q, parseFloat(document.getElementById('price').value), document.getElementById('siteSelect').value];
+        const data = [
+            document.getElementById('datetime').value.replace('T', ' '), 
+            document.getElementById('itemSelect').value, 
+            q, 
+            parseFloat(document.getElementById('price').value), 
+            document.getElementById('siteSelect').value
+        ];
         await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ target: 'Records', action: 'add', data: data }) });
-        e.target.reset(); document.getElementById('date').valueAsDate = new Date();
+        e.target.reset(); 
+        initTime();
         await fetchData();
     });
 
+    function initTime() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('datetime').value = now.toISOString().slice(0, 16);
+    }
+
     function showLoader(s) { document.getElementById('loader').style.display = s ? 'flex' : 'none'; }
-    document.getElementById('date').valueAsDate = new Date();
+    
+    initTime();
     fetchData();
 </script>
 </body>

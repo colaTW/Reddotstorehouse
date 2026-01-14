@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>睿德資訊專業倉儲系統 v4.0 - 自動單價版</title>
+    <title>專業倉儲系統 v5.1 - 模糊搜尋版</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        body { background-color: #f8f9fa; font-family: "Microsoft JhengHei", sans-serif; }
-        .nav-header { background: #2c3e50; color: white; padding: 15px 0; }
-        .card { border-radius: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        body { background-color: #f4f7f6; font-family: "Microsoft JhengHei", sans-serif; }
+        .nav-header { background: #2c3e50; color: white; padding: 12px 0; }
+        .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .form-inbound { border: 3px solid #28a745 !important; }
+        .form-outbound { border: 3px solid #dc3545 !important; }
         .low-stock { background-color: #fff1f0 !important; color: #cf1322; font-weight: bold; }
         .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display:none; justify-content:center; align-items:center; z-index:9999; }
-        .price-info { font-size: 0.8rem; color: #666; margin-top: 4px; }
+        .btn-xs { padding: 1px 5px; font-size: 10px; }
     </style>
 </head>
 <body>
@@ -21,88 +23,81 @@
 
 <div class="nav-header">
     <div class="container d-flex justify-content-between align-items-center">
-        <h4 class="m-0">📦 雲端倉儲管理 (自動計算成本)</h4>
-        <button class="btn btn-outline-light btn-sm" onclick="fetchData()">🔄 同步資料</button>
+        <h5 class="m-0">📦 專業倉儲管理系統</h5>
+        <button class="btn btn-outline-light btn-sm" onclick="fetchData()">🔄 同步雲端</button>
     </div>
 </div>
 
-<div class="container mt-4">
+<div class="container mt-3">
     <ul class="nav nav-pills mb-3">
         <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab1">進出貨作業</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab2">基礎資料管理</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab3">案場報表匯出</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab2">基礎資料</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab3">案場報表</button></li>
     </ul>
 
     <div class="tab-content">
         <div class="tab-pane fade show active" id="tab1">
             <div class="row">
                 <div class="col-md-4">
-                    <div class="card p-3">
-                        <h6 class="fw-bold mb-3">🖊️ 異動登錄</h6>
+                    <div id="formCard" class="card p-3 form-inbound">
+                        <div class="d-flex mb-3">
+                            <button id="btnIn" class="btn btn-success btn-sm w-50 me-1" onclick="switchMode('in')">切換入庫</button>
+                            <button id="btnOut" class="btn btn-outline-danger btn-sm w-50" onclick="switchMode('out')">切換出庫</button>
+                        </div>
+                        <h6 id="formTitle" class="fw-bold text-success">📗 入庫登錄</h6>
                         <form id="wmsForm">
                             <div class="mb-2 small">日期<input type="date" id="date" class="form-control form-control-sm" required></div>
-                            <div class="mb-2 small">數量 (入庫正數/出庫負數)
-                                <input type="number" id="qty" class="form-control form-control-sm" required oninput="handleFormLogic()">
-                            </div>
                             <div class="mb-2 small">品項
-                                <select id="itemSelect" class="form-select form-select-sm" required onchange="handleFormLogic()"></select>
+                                <select id="itemSelect" class="form-select form-select-sm" required onchange="updatePrice()"></select>
                             </div>
-                            <div class="mb-2 small">單價 
-                                <input type="number" id="price" class="form-control form-control-sm" required>
-                                <div id="priceHint" class="price-info"></div>
-                            </div>
-                            <div class="mb-2 small">案場
-                                <select id="siteSelect" class="form-select form-select-sm"></select>
-                            </div>
+                            <div class="mb-2 small">數量<input type="number" id="qty" class="form-control form-control-sm" required></div>
+                            <div class="mb-2 small">單價<input type="number" id="price" class="form-control form-control-sm" required></div>
+                            <div class="mb-2 small">對象/案場<select id="siteSelect" class="form-select form-select-sm"></select></div>
                             <button type="submit" class="btn btn-primary btn-sm w-100 mt-2">確認提交</button>
                         </form>
                     </div>
                 </div>
+
                 <div class="col-md-8">
                     <div class="card p-3">
-                        <h6 class="fw-bold mb-3">📍 目前剩餘庫存 (低於 30 紅燈)</h6>
-                        <table class="table table-sm table-hover border small">
-                            <thead class="table-light"><tr><th>品項</th><th>累計進</th><th>累計出</th><th>剩餘</th><th>目前單價</th><th>庫存價值</th></tr></thead>
-                            <tbody id="inventoryBody"></tbody>
-                        </table>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold m-0">📍 目前剩餘庫存</h6>
+                            <div class="input-group input-group-sm w-50">
+                                <span class="input-group-text bg-white border-end-0">🔍</span>
+                                <input type="text" id="searchInput" class="form-control border-start-0" placeholder="搜尋品項名稱..." oninput="renderInventory()">
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover border small">
+                                <thead class="table-light">
+                                    <tr><th>品項</th><th>進</th><th>出</th><th>剩餘</th><th>單價</th><th>操作</th></tr>
+                                </thead>
+                                <tbody id="inventoryBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="tab-pane fade" id="tab2">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card p-3">
-                        <h6>🛠️ 品項清單 (設定後才能選取)</h6>
-                        <div class="input-group mb-2">
-                            <input type="text" id="newItem" class="form-control form-control-sm" placeholder="新編號/品名">
-                            <button class="btn btn-dark btn-sm" onclick="manageBasicData('Items', 'add', 'newItem')">新增</button>
-                        </div>
-                        <ul id="itemList" class="list-group list-group-flush small"></ul>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card p-3">
-                        <h6>🛠️ 案場清單 (出貨用)</h6>
-                        <div class="input-group mb-2">
-                            <input type="text" id="newSite" class="form-control form-control-sm" placeholder="案場名稱">
-                            <button class="btn btn-dark btn-sm" onclick="manageBasicData('Sites', 'add', 'newSite')">新增</button>
-                        </div>
-                        <ul id="siteList" class="list-group list-group-flush small"></ul>
-                    </div>
-                </div>
-            </div>
+        
         </div>
+</div>
 
-        <div class="tab-pane fade" id="tab3">
-            <div class="card p-4 text-center">
-                <h6>📊 案場出貨價值月報 (Excel)</h6>
-                <div class="row g-2 justify-content-center mt-3">
-                    <div class="col-md-6"><select id="exportSite" class="form-select"></select></div>
-                    <div class="col-md-2"><button class="btn btn-success w-100" onclick="exportExcel()">匯出</button></div>
-                </div>
-                <div id="siteTotalPreview" class="mt-4 fw-bold text-primary h5"></div>
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">進出明細</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-sm small">
+                    <thead><tr><th>日期</th><th>動作</th><th>數量</th><th>單價</th><th>案場</th></tr></thead>
+                    <tbody id="detailBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success btn-sm" onclick="exportSingleItemExcel()">匯出此品項明細</button>
             </div>
         </div>
     </div>
@@ -110,137 +105,152 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_QTwCooaSukUJog1rirU92ufhsc105kRGHKIsCSUlhOCfcTbKZ41KLsVr9e1YKBqJ/exec"; 
-    const LOW_STOCK_LIMIT = 30; // 👈 控制紅燈數量
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzmqk599dh49pM74jRbB7hnpQ-Xza9DnkIX-WLWSPHQtWoc7tEBe4M3Lo3FfZe-URb9/exec"; // 👈 請換成你的 URL
     let cloudData = { records: [], items: [], sites: [] };
+    let currentMode = 'in';
 
-    document.getElementById('date').valueAsDate = new Date();
-
+    // 核心：抓取資料並渲染
     async function fetchData() {
         showLoader(true);
-        const res = await fetch(SCRIPT_URL);
-        cloudData = await res.json();
-        renderSettings();
-        renderInventory();
+        try {
+            const res = await fetch(SCRIPT_URL);
+            cloudData = await res.json();
+            renderInventory(); // 渲染庫存
+            renderSettings();  // 渲染下拉選單與基礎設定
+        } catch(e) { alert("讀取失敗，請檢查 URL"); }
         showLoader(false);
     }
 
-    // 關鍵邏輯：處理單價與案場的鎖定
-    function handleFormLogic() {
-        const qty = parseInt(document.getElementById('qty').value) || 0;
-        const selectedItemName = document.getElementById('itemSelect').value;
-        const itemObj = cloudData.items.find(i => i.name === selectedItemName);
-        const priceInput = document.getElementById('price');
-        const siteSelect = document.getElementById('siteSelect');
-        const priceHint = document.getElementById('priceHint');
-
-        if (qty >= 0) { // 入庫
-            priceInput.disabled = false;
-            priceHint.innerText = itemObj ? `目前紀錄單價: $${itemObj.price}` : "";
-            siteSelect.innerHTML = '<option value="總倉">總倉 (入庫)</option>';
-            siteSelect.disabled = true;
-        } else { // 出貨
-            priceInput.disabled = true;
-            if (itemObj) {
-                priceInput.value = itemObj.price;
-                priceHint.innerText = "出庫自動帶入最新入庫單價";
-            }
-            siteSelect.disabled = false;
-            siteSelect.innerHTML = cloudData.sites.map(s => `<option value="${s}">${s}</option>`).join('');
-        }
-    }
-
-    async function manageBasicData(target, action, inputId, idVal) {
-        const val = idVal || document.getElementById(inputId)?.value;
-        if (!val) return;
-        showLoader(true);
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ target: target, action: action, data: [val, 0], id: val })
-        });
-        if(inputId) document.getElementById(inputId).value = '';
-        await fetchData();
-    }
-
-    function renderSettings() {
-        document.getElementById('itemSelect').innerHTML = cloudData.items.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
-        document.getElementById('exportSite').innerHTML = cloudData.sites.map(s => `<option value="${s}">${s}</option>`).join('');
-        document.getElementById('itemList').innerHTML = cloudData.items.map(i => `<li class="list-group-item d-flex justify-content-between">${i.name} ($${i.price}) <button class="btn btn-link btn-sm text-danger" onclick="manageBasicData('Items','delete','','${i.name}')">刪除</button></li>`).join('');
-        document.getElementById('siteList').innerHTML = cloudData.sites.map(s => `<li class="list-group-item d-flex justify-content-between">${s} <button class="btn btn-link btn-sm text-danger" onclick="manageBasicData('Sites','delete','','${s}')">刪除</button></li>`).join('');
-        handleFormLogic();
-    }
-
+    // 渲染庫存表格 (包含搜尋邏輯)
     function renderInventory() {
+        const searchText = document.getElementById('searchInput').value.toLowerCase();
         const inv = {};
+
+        // 1. 先從紀錄計算統計數據
         cloudData.records.forEach(r => {
             const [date, name, qty, price, loc] = r;
             if (!inv[name]) inv[name] = { in: 0, out: 0, currentPrice: price };
-            if (qty > 0) {
-                inv[name].in += qty;
-                inv[name].currentPrice = price; // 更新為最後一次入庫價
-            } else {
-                inv[name].out += Math.abs(qty);
-            }
+            if (qty > 0) { inv[name].in += qty; inv[name].currentPrice = price; }
+            else { inv[name].out += Math.abs(qty); }
         });
 
-        document.getElementById('inventoryBody').innerHTML = Object.entries(inv).map(([name, s]) => {
+        // 2. 根據搜尋文字過濾品項
+        const filteredItemNames = Object.keys(inv).filter(name => 
+            name.toLowerCase().includes(searchText)
+        );
+
+        // 3. 渲染過濾後的內容
+        const tbody = document.getElementById('inventoryBody');
+        if (filteredItemNames.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">找不到相符的品項</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filteredItemNames.map(name => {
+            const s = inv[name];
             const bal = s.in - s.out;
-            const isLow = bal < LOW_STOCK_LIMIT;
-            return `<tr class="${isLow ? 'low-stock' : ''}">
-                <td>${name} ${isLow ? '⚠️' : ''}</td>
-                <td>${s.in}</td><td>${s.out}</td><td>${bal}</td>
-                <td>$${s.currentPrice}</td><td>$${(bal * s.currentPrice).toLocaleString()}</td>
-            </tr>`;
+            const isLow = bal < 30;
+            return `
+                <tr class="${isLow ? 'low-stock' : ''}">
+                    <td>${name} ${isLow ? '⚠️' : ''}</td>
+                    <td>${s.in}</td>
+                    <td>${s.out}</td>
+                    <td>${bal}</td>
+                    <td>$${s.currentPrice}</td>
+                    <td><button class="btn btn-primary btn-xs" onclick="showDetail('${name}')">明細</button></td>
+                </tr>`;
         }).join('');
     }
 
+    // 切換模式 (入庫/出庫)
+    function switchMode(mode) {
+        currentMode = mode;
+        const card = document.getElementById('formCard');
+        const title = document.getElementById('formTitle');
+        const btnIn = document.getElementById('btnIn');
+        const btnOut = document.getElementById('btnOut');
+        const priceInput = document.getElementById('price');
+        const siteSelect = document.getElementById('siteSelect');
+
+        if (mode === 'in') {
+            card.className = "card p-3 form-inbound";
+            title.innerText = "📗 入庫登錄";
+            title.className = "fw-bold text-success";
+            btnIn.className = "btn btn-success btn-sm w-50 me-1";
+            btnOut.className = "btn btn-outline-danger btn-sm w-50";
+            priceInput.disabled = false;
+            siteSelect.innerHTML = '<option value="總倉">總倉 (入庫)</option>';
+        } else {
+            card.className = "card p-3 form-outbound";
+            title.innerText = "📕 出庫登錄";
+            title.className = "fw-bold text-danger";
+            btnIn.className = "btn btn-outline-success btn-sm w-50 me-1";
+            btnOut.className = "btn btn-danger btn-sm w-50";
+            priceInput.disabled = true;
+            siteSelect.innerHTML = cloudData.sites.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+        updatePrice();
+    }
+
+    // 更新單價顯示
+    function updatePrice() {
+        const selectedItemName = document.getElementById('itemSelect').value;
+        const itemObj = cloudData.items.find(i => i.name === selectedItemName);
+        if (itemObj) {
+            document.getElementById('price').value = itemObj.price;
+            document.getElementById('priceHint').innerText = `系統紀錄單價: $${itemObj.price}`;
+        }
+    }
+
+    // 彈出明細 (與 v5.0 一致)
+    function showDetail(name) {
+        activeItem = name;
+        const filtered = cloudData.records.filter(r => r[1] === name);
+        document.getElementById('modalTitle').innerText = `${name} - 進出明細`;
+        document.getElementById('detailBody').innerHTML = filtered.map(r => `
+            <tr>
+                <td>${r[0]}</td>
+                <td>${r[2]>0 ? '<span class="text-success">入庫</span>' : '<span class="text-danger">出庫</span>'}</td>
+                <td>${Math.abs(r[2])}</td>
+                <td>$${r[3]}</td>
+                <td>${r[4]}</td>
+            </tr>
+        `).join('');
+        new bootstrap.Modal(document.getElementById('detailModal')).show();
+    }
+
+    // 提交表單
     document.getElementById('wmsForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         showLoader(true);
+        let qty = parseInt(document.getElementById('qty').value);
+        if (currentMode === 'out') qty = -Math.abs(qty); // 出庫自動轉負數
+
         const data = [
             document.getElementById('date').value,
             document.getElementById('itemSelect').value,
-            parseInt(document.getElementById('qty').value),
+            qty,
             parseFloat(document.getElementById('price').value),
             document.getElementById('siteSelect').value
         ];
+        
         await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ target: 'Records', action: 'add', data: data }) });
         e.target.reset();
         document.getElementById('date').valueAsDate = new Date();
         await fetchData();
+        switchMode(currentMode);
     });
 
-    function exportExcel() {
-        const site = document.getElementById('exportSite').value;
-        const filtered = cloudData.records.filter(r => r[4] === site);
-        
-        // 計算總額
-        const total = filtered.reduce((sum, r) => sum + (Math.abs(r[2]) * r[3]), 0);
-        
-        const wsData = [
-            ["案場月報表", "", "", "", ""],
-            ["案場名稱:", site, "", "導出日期:", new Date().toLocaleDateString()],
-            [],
-            ["日期", "品項", "數量", "單價", "小計"]
-        ];
-
-        filtered.forEach(r => {
-            wsData.push([r[0], r[1], r[2], r[3], Math.abs(r[2]) * r[3]]);
-        });
-
-        wsData.push([]);
-        wsData.push(["", "", "", "案場出貨總價值:", total]);
-
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Report");
-        XLSX.writeFile(wb, `${site}_案場月報.xlsx`);
-        
-        document.getElementById('siteTotalPreview').innerText = `${site} 總累積金額: $${total.toLocaleString()}`;
+    function renderSettings() {
+        // 更新品項下拉選單
+        document.getElementById('itemSelect').innerHTML = cloudData.items.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+        switchMode(currentMode); // 初始化模式
     }
 
     function showLoader(s) { document.getElementById('loader').style.display = s ? 'flex' : 'none'; }
-    fetchData();
+    document.getElementById('date').valueAsDate = new Date();
+    fetchData(); // 初始載入
 </script>
+
 </body>
 </html>

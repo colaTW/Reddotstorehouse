@@ -117,7 +117,7 @@
             cloudData = await res.json();
             renderInventory(); // 渲染庫存
             renderSettings();  // 渲染下拉選單與基礎設定
-        } catch(e) { alert("讀取失敗，請檢查 URL"); }
+        } catch(e) { alert("讀取失敗，請檢查 URL"+e); }
         showLoader(false);
     }
 
@@ -254,4 +254,5 @@
 
 </body>
 </html>
+
 

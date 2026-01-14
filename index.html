@@ -193,7 +193,7 @@
             btnIn.className = "btn btn-success btn-sm w-50 me-1";
             btnOut.className = "btn btn-outline-danger btn-sm w-50";
             priceInput.disabled = false;
-            siteSelect.innerHTML = '<option value="總倉">總倉 (入庫)</option>';
+            siteSelect.innerHTML = `<option value="總倉">總倉 (入庫)</option> <option value="公司小倉">公司小倉 (入庫)</option>`;
         } else {
             card.className = "card p-3 form-outbound";
             title.innerText = "📕 出庫登錄";
@@ -367,3 +367,4 @@
 </script>
 </body>
 </html>
+
